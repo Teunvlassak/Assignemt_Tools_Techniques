@@ -1,0 +1,164 @@
+---
+title: "Datascience_salaries"
+format: html
+editor: visual
+---
+
+#load libraries
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(gridExtra)
+library(magrittr)
+library(scales)
+library(summarytools)
+library(plotrix)
+library(RColorBrewer)
+```
+
+#Read in Dataset from Data_science_22-23
+```{r}
+library(readr)
+ds <- read_csv("~/Data science 22-23/datascience_salaries.csv")
+View(datascience_salaries)
+```
+
+#Salary; had t be numeric to salary.
+```{r}
+ds <- ds %>%
+  mutate(salary = as.numeric(gsub("[^0-9\\.]", "", `salary;`)))
+```
+
+#Count the missing values to know if the dataset is complete.
+```{r}
+mis <- sum(is.na(ds))
+print(paste("Count of total missing values is", mis))
+```
+#count total duplicate observation to know if the dataset is complete.
+```{r}
+dup <- sum(duplicated(ds))
+print(paste("Count of total duplicate observation is", dup))
+```
+#look at the names of they are complete and correct.
+```{r}
+names(ds)
+ds = rename(ds, "sn" = "...1")
+names(ds)
+```
+
+#I need to get a count of the number of observations of each unique value in the "job_title." The missing values will not be included.
+```{r}
+ds %>% summarytools::freq(job_title, report.nas = FALSE, headings = F, justify = "left")
+```
+#Look at the values of currency.
+```{r}
+table(ds$salary_currency)
+```
+
+#That some of the values in the salary_currency column are not in US dollars (USD), and that all of the values need to be converted to USD.
+```{r}
+print("some salary currency are not in USD, therefore all needs to be converted to USD")
+
+#This is the converting of salary.
+ds <- ds %>% 
+  mutate(salary_usd = case_when(salary_currency == "USD" ~ salary,
+                                salary_currency == "EUR" ~ salary * 1.06451,
+                                
+salary_currency == "GBP" ~ salary * 1.20526,
+                                TRUE ~ NA_real_))
+names(ds)
+```
+
+#change intial salary column to salary_usd_gbp_eur and salary_usd to salary
+```{r}
+ds = rename(ds, "salary_usd_gbp_eur" = "salary")
+ds = rename(ds, "salary" = "salary_usd")
+names(ds)
+```
+
+#summarize the salaries of Data scientists
+```{r}
+descr(ds$salary, headings = F)
+```
+
+#show on a density plot
+```{r}
+ggplot(ds, aes(x = salary)) +
+  geom_density(fill = "#0072B3", alpha = 0.5) +
+  theme_bw() +
+  labs(title = "Salary Distribution", x = "Salary", y = "Density") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  scale_y_continuous(expand = expansion(mult = c(0, 0)),
+                     breaks = NULL)
+```
+
+#Average salary by job title
+#The resulting salary_by_job object is a data frame that contains the "job_title", "count", "min_salary", "max_salary", "mean_salary", and "median_salary" for each job title in the ds data frame.
+```{r}
+salary_by_job <- ds %>% group_by(job_title) %>% 
+  summarise(count= n(),
+            min_salary=min(salary),
+            max_salary=max(salary),
+            mean_salary=mean(salary),
+            median_salary=median(salary)) %>% 
+  arrange(desc(mean_salary)) %>% 
+  mutate(rank = rank(-mean_salary))
+salary_by_job
+```
+#Average salary by experience
+```{r}
+salary_by_exp <- ds %>% group_by(experience_level) %>% 
+  summarise(count= n(),
+            min_salary=min(salary),
+            max_salary=max(salary),
+            mean_salary=mean(salary)) %>% 
+  arrange(desc(mean_salary)) %>% 
+  mutate(rank = rank(-mean_salary))
+salary_by_exp
+```
+
+
+
+#Average salary by job_type
+```{r}
+salary_by_jobtype <- ds %>% group_by(job_type) %>% 
+  summarise(count= n(),
+            min_salary=min(salary),
+            max_salary=max(salary),
+            mean_salary=mean(salary)) %>% 
+  arrange(desc(mean_salary)) %>% 
+  mutate(rank = rank(-mean_salary))
+salary_by_jobtype
+```
+
+
+#The purpose of performing the qqnorm and shapiro.test is to assess whether the salary column in the ds data frame follows a normal distribution. 
+```{r}
+qqnorm(ds$salary)
+shapiro.test(ds$salary)
+```
+
+#It looks like you are using the "glm" function to fit a generalized linear model (GLM) to the ds data frame, and then using the summary function to display a summary of the model.
+```{r}
+ds_model <- glm(salary ~ job_title + 
+                  job_type + 
+                  experience_level + 
+                  remote, family=Gamma(link="log"), data=ds)
+
+#The summary function displays a summary of the fitted GLM.
+summary(ds_model)
+```
+
+#Eventually the main question was if i can predict my salary according to this data.frame.
+
+#The answer is no, i can not.
+
+#The data I used was according to american statistics and you can not compare them with a european student. The difference between location, age, and entry salary level is way to high to compare.
+
+
+
+
+
